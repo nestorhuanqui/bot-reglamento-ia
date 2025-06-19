@@ -2,9 +2,7 @@ services:
   - type: web
     name: bot-reglamento-ia
     env: python
-    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn main:app
-    envVars:
-      - key: OPENAI_API_KEY
-        fromSecret: OPENAI_API_KEY
+    plan: free
+    region: oregon
