@@ -7,9 +7,8 @@ from sentence_transformers import SentenceTransformer
 import requests
 
 # === CONFIGURACIÓN ===
-HUGGINGFACE_TOKEN = os.getenv("HF_TOKEN")  # Variable de entorno en Render
+HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")  # Variable de entorno en Render
 FALCON_API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
-MODEL_NAME = "tiiuae/falcon-7b-instruct"
 
 # === CARGA EMBEDDINGS Y FRAGMENTOS ===
 with open("fragments.pkl", "rb") as f:
@@ -76,7 +75,9 @@ Respuesta:"""
 
         result = response.json()
         if isinstance(result, list) and "generated_text" in result[0]:
-            return jsonify({"respuesta": result[0]["generated_text"].split("Respuesta:")[-1].strip()})
+            return jsonify({
+                "respuesta": result[0]["generated_text"].split("Respuesta:")[-1].strip()
+            })
         else:
             return jsonify({"error": result}), 500
 
