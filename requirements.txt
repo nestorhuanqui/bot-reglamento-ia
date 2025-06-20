@@ -1,5 +1,6 @@
-sentence-transformers
-faiss-cpu
 flask
 flask-cors
+sentence-transformers
+faiss-cpu
 requests
+gunicorn
