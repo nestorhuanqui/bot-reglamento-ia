@@ -17,6 +17,7 @@ with open("fragments.pkl", "rb") as f:
 index = faiss.read_index("reglamento.index")
 embedding_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
 
+# Inicializa Flask
 app = Flask(__name__)
 CORS(app,
      origins=["https://app.tecnoeducando.edu.pe"],
@@ -24,6 +25,7 @@ CORS(app,
      allow_headers=["Content-Type", "X-Token"],
      supports_credentials=True)
 
+# Token de seguridad para consultas
 TOKEN_PERMITIDO = "e398a7d3-dc9f-4ef9-bb29-07bff1672ef1"
 
 @app.route("/consulta", methods=["POST", "OPTIONS"])
@@ -37,12 +39,12 @@ def consulta():
     data = request.get_json()
     pregunta = data.get("pregunta", "")
 
-    # Buscar contexto relevante
+    # Generar embedding y contexto
     pregunta_vec = embedding_model.encode([pregunta])
     D, I = index.search(pregunta_vec, k=5)
     contexto = "\n\n".join([fragments[i] for i in I[0]])
 
-    prompt = f"""Responde con base únicamente en el siguiente reglamento. Sé claro y directo.
+    prompt = f"""Responde con base en el siguiente reglamento. No inventes información.
 
 --- CONTEXTO ---
 {contexto}
@@ -66,14 +68,23 @@ Pregunta: {pregunta}
                 }
             }
         )
-        data = response.json()
-        if isinstance(data, list):
-            respuesta = data[0].get("generated_text", "No se pudo generar respuesta.")
-            return jsonify({"respuesta": respuesta})
+
+        print("STATUS:", response.status_code)
+        print("TEXT:", response.text)
+
+        if response.status_code == 200:
+            data = response.json()
+            if isinstance(data, list):
+                respuesta = data[0].get("generated_text", "No se pudo generar respuesta.")
+                return jsonify({"respuesta": respuesta})
+            else:
+                return jsonify({"error": data}), 500
         else:
-            return jsonify({"error": data}), 500
+            return jsonify({"error": f"Respuesta HTTP: {response.status_code}", "detalle": response.text}), 500
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# Ejecutar localmente (Render usa gunicorn)
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
