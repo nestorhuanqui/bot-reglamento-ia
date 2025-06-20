@@ -1,5 +1,4 @@
 flask
 flask-cors
-sentence-transformers
-faiss-cpu
-httpx
+openai
+gunicorn
