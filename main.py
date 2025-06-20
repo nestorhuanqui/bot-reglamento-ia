@@ -7,25 +7,23 @@ from sentence_transformers import SentenceTransformer
 import requests
 
 # Configuración
-HF_TOKEN = os.getenv("HF_TOKEN")  # Token Hugging Face (en Render)
-MODEL_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-alpha"
+HF_TOKEN = os.getenv("HF_TOKEN")
+MODEL_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
 
-# Carga embeddings y fragmentos
+# Carga los fragmentos y el índice
 with open("fragments.pkl", "rb") as f:
     fragments = pickle.load(f)
 
 index = faiss.read_index("reglamento.index")
 embedding_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
 
-# Flask app
 app = Flask(__name__)
 CORS(app,
      origins=["https://app.tecnoeducando.edu.pe"],
-     allow_headers=["Content-Type", "X-Token"],
      methods=["GET", "POST", "OPTIONS"],
+     allow_headers=["Content-Type", "X-Token"],
      supports_credentials=True)
 
-# Seguridad
 TOKEN_PERMITIDO = "e398a7d3-dc9f-4ef9-bb29-07bff1672ef1"
 
 @app.route("/consulta", methods=["POST", "OPTIONS"])
@@ -39,13 +37,12 @@ def consulta():
     data = request.get_json()
     pregunta = data.get("pregunta", "")
 
-    # Embedding de la pregunta
+    # Buscar contexto relevante
     pregunta_vec = embedding_model.encode([pregunta])
     D, I = index.search(pregunta_vec, k=5)
     contexto = "\n\n".join([fragments[i] for i in I[0]])
 
-    prompt = f"""
-Responde con base en el siguiente reglamento. Sé claro y no inventes información.
+    prompt = f"""Responde con base únicamente en el siguiente reglamento. Sé claro y directo.
 
 --- CONTEXTO ---
 {contexto}
@@ -61,15 +58,20 @@ Pregunta: {pregunta}
                 "Authorization": f"Bearer {HF_TOKEN}",
                 "Content-Type": "application/json"
             },
-            json={"inputs": prompt}
+            json={
+                "inputs": prompt,
+                "parameters": {
+                    "temperature": 0.7,
+                    "max_new_tokens": 512
+                }
+            }
         )
-
         data = response.json()
-        if isinstance(data, list) and "generated_text" in data[0]:
-            return jsonify({"respuesta": data[0]["generated_text"].split("Pregunta:")[-1].strip()})
+        if isinstance(data, list):
+            respuesta = data[0].get("generated_text", "No se pudo generar respuesta.")
+            return jsonify({"respuesta": respuesta})
         else:
             return jsonify({"error": data}), 500
-
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
