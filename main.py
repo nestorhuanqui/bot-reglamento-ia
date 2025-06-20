@@ -7,18 +7,19 @@ from sentence_transformers import SentenceTransformer
 import requests
 
 # === CONFIGURACIÓN ===
-HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")  # Variable de entorno en Render
+HUGGINGFACE_TOKEN = os.getenv("HF_TOKEN")  # Debes configurarlo en Render como variable de entorno
 FALCON_API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
 
-# === CARGA EMBEDDINGS Y FRAGMENTOS ===
+# === CARGA DE EMBEDDINGS Y FRAGMENTOS ===
 with open("fragments.pkl", "rb") as f:
     fragments = pickle.load(f)
+
 index = faiss.read_index("reglamento.index")
 
 # Modelo de embeddings
 embedding_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
 
-# === FLASK SETUP ===
+# === FLASK APP ===
 app = Flask(__name__)
 CORS(app,
      resources={r"/consulta": {"origins": "https://app.tecnoeducando.edu.pe"}},
@@ -26,8 +27,10 @@ CORS(app,
      allow_headers=["Content-Type", "X-Token"],
      supports_credentials=True)
 
+# Seguridad básica
 TOKEN_PERMITIDO = "e398a7d3-dc9f-4ef9-bb29-07bff1672ef1"
 
+# === RUTA PARA CONSULTA DE EMBEDDINGS + FALCON ===
 @app.route("/consulta", methods=["POST", "OPTIONS"])
 def consulta():
     if request.method == "OPTIONS":
@@ -41,13 +44,13 @@ def consulta():
     if not pregunta:
         return jsonify({"error": "Pregunta vacía"}), 400
 
-    # Buscar contexto relevante
+    # Buscar contexto semántico
     pregunta_vec = embedding_model.encode([pregunta])
     D, I = index.search(pregunta_vec, k=5)
     contexto = "\n\n".join([fragments[i] for i in I[0]])
 
     # Prompt optimizado para Falcon
-    prompt = f"""Responde basándote estrictamente en el siguiente reglamento. Si no está en el reglamento, responde "No se encuentra en el reglamento".
+    prompt = f"""Responde basándote estrictamente en el siguiente reglamento. Si no está en el reglamento, responde: "No se encuentra en el reglamento".
 
 --- REGLAMENTO ---
 {contexto}
@@ -73,16 +76,20 @@ Respuesta:"""
             }
         )
 
+        # DEBUG: imprime respuesta cruda en consola Render
+        print("RAW RESPONSE:", response.text)
+
         result = response.json()
         if isinstance(result, list) and "generated_text" in result[0]:
-            return jsonify({
-                "respuesta": result[0]["generated_text"].split("Respuesta:")[-1].strip()
-            })
+            texto = result[0]["generated_text"].split("Respuesta:")[-1].strip()
+            return jsonify({"respuesta": texto})
         else:
             return jsonify({"error": result}), 500
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+# === MAIN ===
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
