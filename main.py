@@ -7,19 +7,17 @@ from sentence_transformers import SentenceTransformer
 import requests
 
 # Configuración
-DEESEEK_API_KEY = os.getenv("DEESEEK_API_KEY")  # ⚠️ Asegúrate de poner esto en Render
-MODEL_NAME = "deepseek-chat"  # o el modelo que uses
+HF_TOKEN = os.getenv("HF_TOKEN")  # Token Hugging Face (en Render)
+MODEL_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-alpha"
 
-# Carga los fragmentos y el índice
+# Carga embeddings y fragmentos
 with open("fragments.pkl", "rb") as f:
     fragments = pickle.load(f)
 
 index = faiss.read_index("reglamento.index")
-
-# Modelo de embeddings
 embedding_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
 
-# Flask
+# Flask app
 app = Flask(__name__)
 CORS(app,
      resources={r"/consulta": {"origins": "https://app.tecnoeducando.edu.pe"}},
@@ -27,7 +25,7 @@ CORS(app,
      allow_headers=["Content-Type", "X-Token"],
      supports_credentials=True)
 
-# Token de seguridad
+# Seguridad
 TOKEN_PERMITIDO = "e398a7d3-dc9f-4ef9-bb29-07bff1672ef1"
 
 @app.route("/consulta", methods=["POST", "OPTIONS"])
@@ -47,7 +45,7 @@ def consulta():
     contexto = "\n\n".join([fragments[i] for i in I[0]])
 
     prompt = f"""
-Responde con base en el siguiente reglamento. No inventes información.
+Responde con base en el siguiente reglamento. Sé claro y no inventes información.
 
 --- CONTEXTO ---
 {contexto}
@@ -58,23 +56,17 @@ Pregunta: {pregunta}
 
     try:
         response = requests.post(
-            "https://api.deepseek.com/v1/chat/completions",
+            MODEL_URL,
             headers={
-                "Authorization": f"Bearer {DEESEEK_API_KEY}",
+                "Authorization": f"Bearer {HF_TOKEN}",
                 "Content-Type": "application/json"
             },
-            json={
-                "model": MODEL_NAME,
-                "messages": [
-                    {"role": "user", "content": prompt}
-                ]
-            }
+            json={"inputs": prompt}
         )
 
         data = response.json()
-        if "choices" in data:
-            respuesta = data["choices"][0]["message"]["content"]
-            return jsonify({"respuesta": respuesta})
+        if isinstance(data, list) and "generated_text" in data[0]:
+            return jsonify({"respuesta": data[0]["generated_text"].split("Pregunta:")[-1].strip()})
         else:
             return jsonify({"error": data}), 500
 
