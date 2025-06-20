@@ -8,7 +8,7 @@ import requests
 
 # Configuración
 DEESEEK_API_KEY = os.getenv("DEESEEK_API_KEY")  # ⚠️ Asegúrate de poner esto en Render
-MODEL_NAME = "deepseek-ai/deepseek-coder-6.7b-instruct"  # o el modelo que uses
+MODEL_NAME = "deepseek-chat"  # o el modelo que uses
 
 # Carga los fragmentos y el índice
 with open("fragments.pkl", "rb") as f:
