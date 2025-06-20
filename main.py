@@ -10,7 +10,11 @@ with open("reglamento.txt", "r", encoding="utf-8") as f:
     reglamento = f.read()
 
 app = Flask(__name__)
-CORS(app, resources={r"/consulta": {"origins": "https://bot.tecnoeducando.edu.pe"}})
+CORS(app,
+     origins=["https://app.tecnoeducando.edu.pe"],
+     methods=["GET", "POST", "OPTIONS"],
+     allow_headers=["Content-Type", "X-Token"],
+     supports_credentials=True)
 
 TOKEN_PERMITIDO = "e398a7d3-dc9f-4ef9-bb29-07bff1672ef1"
 
