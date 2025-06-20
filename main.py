@@ -1,183 +1,87 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Asistente virtual del colegio para resolver dudas de padres de familia.">
-  <title>Asistente del Colegio</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #ece5dd;
-      margin: 0;
-      padding: 0;
-    }
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import os
+import faiss
+import pickle
+from sentence_transformers import SentenceTransformer
+import requests
 
-    h2 {
-      text-align: center;
-      background: #25D366;
-      color: white;
-      padding: 15px;
-      margin: 0;
-      font-size: 1.3em;
-    }
+# === CONFIGURACIÓN ===
+HUGGINGFACE_TOKEN = os.getenv("HF_TOKEN")  # Variable de entorno en Render
+FALCON_API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
+MODEL_NAME = "tiiuae/falcon-7b-instruct"
 
-    .chat-container {
-      max-width: 500px;
-      margin: auto;
-      background: #fff;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
+# === CARGA EMBEDDINGS Y FRAGMENTOS ===
+with open("fragments.pkl", "rb") as f:
+    fragments = pickle.load(f)
+index = faiss.read_index("reglamento.index")
 
-    .chat-box {
-      flex: 1;
-      padding: 10px;
-      overflow-y: auto;
-    }
+# Modelo de embeddings
+embedding_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
 
-    .mensaje {
-      margin: 8px 0;
-      padding: 10px;
-      border-radius: 10px;
-      max-width: 80%;
-      line-height: 1.4;
-      word-wrap: break-word;
-    }
+# === FLASK SETUP ===
+app = Flask(__name__)
+CORS(app,
+     resources={r"/consulta": {"origins": "https://app.tecnoeducando.edu.pe"}},
+     methods=["GET", "POST", "OPTIONS"],
+     allow_headers=["Content-Type", "X-Token"],
+     supports_credentials=True)
 
-    .usuario {
-      align-self: flex-end;
-      background-color: #dcf8c6;
-    }
+TOKEN_PERMITIDO = "e398a7d3-dc9f-4ef9-bb29-07bff1672ef1"
 
-    .bot {
-      align-self: flex-start;
-      background-color: #f1f0f0;
-      border: 1px solid #ccc;
-    }
+@app.route("/consulta", methods=["POST", "OPTIONS"])
+def consulta():
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
 
-    .entrada {
-      display: flex;
-      padding: 10px;
-      border-top: 1px solid #ccc;
-      background: #f0f0f0;
-    }
+    if request.headers.get("X-Token") != TOKEN_PERMITIDO:
+        return jsonify({"error": "No autorizado"}), 403
 
-    input[type="text"] {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      border-radius: 20px;
-      outline: none;
-      font-size: 1em;
-    }
+    data = request.get_json()
+    pregunta = data.get("pregunta", "").strip()
+    if not pregunta:
+        return jsonify({"error": "Pregunta vacía"}), 400
 
-    button {
-      background: #25D366;
-      border: none;
-      color: white;
-      padding: 10px 20px;
-      margin-left: 10px;
-      border-radius: 20px;
-      cursor: pointer;
-      font-size: 1em;
-    }
+    # Buscar contexto relevante
+    pregunta_vec = embedding_model.encode([pregunta])
+    D, I = index.search(pregunta_vec, k=5)
+    contexto = "\n\n".join([fragments[i] for i in I[0]])
 
-    button:disabled {
-      background: #b9e0c5;
-      cursor: not-allowed;
-    }
-  </style>
-</head>
-<body>
+    # Prompt optimizado para Falcon
+    prompt = f"""Responde basándote estrictamente en el siguiente reglamento. Si no está en el reglamento, responde "No se encuentra en el reglamento".
 
-<h2>Asistente Virtual del Colegio</h2>
+--- REGLAMENTO ---
+{contexto}
+--- FIN ---
 
-<div class="chat-container">
-  <div class="chat-box" id="chatBox"></div>
-  <div class="entrada">
-    <input type="text" id="pregunta" placeholder="Escribe tu consulta...">
-    <button onclick="enviarConsulta()" id="btnEnviar">Enviar</button>
-  </div>
-</div>
+Pregunta: {pregunta}
+Respuesta:"""
 
-<script>
-  const URL_BACKEND = "https://bot.tecnoeducando.edu.pe/consulta";
-  const TOKEN = "e398a7d3-dc9f-4ef9-bb29-07bff1672ef1";
+    try:
+        response = requests.post(
+            FALCON_API_URL,
+            headers={
+                "Authorization": f"Bearer {HUGGINGFACE_TOKEN}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "inputs": prompt,
+                "parameters": {
+                    "max_new_tokens": 300,
+                    "temperature": 0.3,
+                    "do_sample": False
+                }
+            }
+        )
 
-  const LIMITE_CONSULTAS = 5;
-  const TIEMPO_LIMITE = 60000; // 1 minuto
-  let consultas = [];
+        result = response.json()
+        if isinstance(result, list) and "generated_text" in result[0]:
+            return jsonify({"respuesta": result[0]["generated_text"].split("Respuesta:")[-1].strip()})
+        else:
+            return jsonify({"error": result}), 500
 
-  function puedeConsultar() {
-    const ahora = Date.now();
-    consultas = consultas.filter(ts => ahora - ts < TIEMPO_LIMITE);
-    if (consultas.length >= LIMITE_CONSULTAS) {
-      alert("Has alcanzado el límite de 5 consultas por minuto.");
-      return false;
-    }
-    consultas.push(ahora);
-    return true;
-  }
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-  function enviarConsulta() {
-    const input = document.getElementById("pregunta");
-    const texto = input.value.trim();
-    const btn = document.getElementById("btnEnviar");
-
-    if (!texto || !puedeConsultar()) return;
-
-    agregarMensaje(texto, 'usuario');
-    input.value = "";
-    btn.disabled = true;
-
-    const idTemp = agregarMensaje("Pensando...", 'bot');
-
-    fetch(URL_BACKEND, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Token": TOKEN
-      },
-      body: JSON.stringify({ pregunta: texto })
-    })
-    .then(async res => {
-      if (!res.ok) {
-        const error = await res.text();
-        throw new Error("Respuesta no válida: " + error);
-      }
-      return res.json();
-    })
-    .then(data => {
-      actualizarMensaje(idTemp, data.respuesta || "El bot no pudo generar una respuesta.");
-    })
-    .catch(err => {
-      console.error(err);
-      actualizarMensaje(idTemp, "Error al consultar el servidor: " + err.message);
-    })
-    .finally(() => {
-      btn.disabled = false;
-    });
-  }
-
-  function agregarMensaje(texto, clase) {
-    const chatBox = document.getElementById("chatBox");
-    const msg = document.createElement("div");
-    msg.className = `mensaje ${clase}`;
-    msg.textContent = texto;
-    const id = "msg-" + Date.now();
-    msg.id = id;
-    chatBox.appendChild(msg);
-    chatBox.scrollTop = chatBox.scrollHeight;
-    return id;
-  }
-
-  function actualizarMensaje(id, nuevoTexto) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = nuevoTexto;
-  }
-</script>
-
-</body>
-</html>
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
