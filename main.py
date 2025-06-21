@@ -8,8 +8,10 @@ import requests
 
 # === CONFIGURACIÓN GENERAL ===
 HUGGINGFACE_TOKEN = os.getenv("HF_TOKEN")  # Asegúrate de configurar esto en Render
-API_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
 print("HUGGINGFACE_TOKEN:", HUGGINGFACE_TOKEN)
+
+API_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
+
 # === CARGA EMBEDDINGS Y FRAGMENTOS ===
 with open("fragments.pkl", "rb") as f:
     fragments = pickle.load(f)
@@ -78,7 +80,6 @@ Respuesta:"""
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
