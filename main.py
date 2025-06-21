@@ -5,7 +5,7 @@ import faiss
 import pickle
 from sentence_transformers import SentenceTransformer
 import requests
-
+print("HUGGINGFACE_TOKEN:", HUGGINGFACE_TOKEN)
 # === CONFIGURACIÓN GENERAL ===
 HUGGINGFACE_TOKEN = os.getenv("HF_TOKEN")  # Asegúrate de configurar esto en Render
 API_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
