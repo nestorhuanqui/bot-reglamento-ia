@@ -84,3 +84,31 @@ Respuesta:"""
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
+
+# === RUTA DE VERIFICACIÓN DEL ESTADO DEL MODELO EN HUGGING FACE ===
+@app.route("/modelo-status", methods=["GET"])
+def modelo_status():
+    try:
+        response = requests.get(
+            FALCON_API_URL,
+            headers={
+                "Authorization": f"Bearer {HUGGINGFACE_TOKEN}"
+            }
+        )
+
+        if response.status_code == 200:
+            return jsonify({"estado": "Disponible ✅"})
+        elif response.status_code == 503:
+            return jsonify({"estado": "⏳ Cargando modelo en Hugging Face... (503)"}), 503
+        elif response.status_code == 401:
+            return jsonify({"estado": "❌ Token inválido o sin permisos (401)"}), 401
+        else:
+            return jsonify({
+                "estado": f"⚠️ Error desconocido",
+                "código": response.status_code,
+                "detalle": response.text
+            }), response.status_code
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
