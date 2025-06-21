@@ -90,7 +90,7 @@ if __name__ == "__main__":
 def modelo_status():
     try:
         response = requests.get(
-            FALCON_API_URL,
+            API_URL,
             headers={
                 "Authorization": f"Bearer {HUGGINGFACE_TOKEN}"
             }
