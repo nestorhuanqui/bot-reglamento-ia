@@ -96,6 +96,7 @@ def modelo_status():
             }
         )
 
+
         if response.status_code == 200:
             return jsonify({"estado": "Disponible ✅"})
         elif response.status_code == 503:
