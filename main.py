@@ -20,10 +20,11 @@ embedding_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
 # === FLASK APP ===
 app = Flask(__name__)
 CORS(app,
-     origins=["https://app.tecnoeducando.edu.pe"],
+     resources={r"/consulta": {"origins": ["https://app.tecnoeducando.edu.pe"]}},
      methods=["GET", "POST", "OPTIONS"],
      allow_headers=["Content-Type", "X-Token"],
      supports_credentials=True)
+
 
 TOKEN_PERMITIDO = "e398a7d3-dc9f-4ef9-bb29-07bff1672ef1"
 
