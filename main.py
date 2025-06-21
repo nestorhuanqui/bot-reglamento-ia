@@ -7,13 +7,12 @@ from sentence_transformers import SentenceTransformer
 import requests
 
 # === CONFIGURACIÓN ===
-HUGGINGFACE_TOKEN = os.getenv("HF_TOKEN")
-API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
+HUGGINGFACE_TOKEN = os.getenv("HF_TOKEN")  # Asegúrate que esté en Render
+API_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-alpha"
 
-# === CARGA DE EMBEDDINGS Y FRAGMENTOS ===
+# === CARGA EMBEDDINGS Y FRAGMENTOS ===
 with open("fragments.pkl", "rb") as f:
     fragments = pickle.load(f)
-
 index = faiss.read_index("reglamento.index")
 embedding_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
 
@@ -21,11 +20,11 @@ embedding_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
 app = Flask(__name__)
 CORS(app,
      resources={r"/consulta": {"origins": ["https://app.tecnoeducando.edu.pe"]}},
+     supports_credentials=True,
      methods=["GET", "POST", "OPTIONS"],
-     allow_headers=["Content-Type", "X-Token"],
-     supports_credentials=True)
+     allow_headers=["Content-Type", "X-Token"])
 
-
+# Token básico de seguridad
 TOKEN_PERMITIDO = "e398a7d3-dc9f-4ef9-bb29-07bff1672ef1"
 
 @app.route("/consulta", methods=["POST", "OPTIONS"])
@@ -41,16 +40,17 @@ def consulta():
     if not pregunta:
         return jsonify({"error": "Pregunta vacía"}), 400
 
+    # Embedding + FAISS
     pregunta_vec = embedding_model.encode([pregunta])
     D, I = index.search(pregunta_vec, k=5)
     contexto = "\n\n".join([fragments[i] for i in I[0]])
 
-    prompt = f"""Responde de forma clara basándote exclusivamente en el siguiente reglamento. 
-Si la información no está en el reglamento, responde: "No se encuentra en el reglamento".
+    # Prompt simple y directo
+    prompt = f"""Responde solo con base en el siguiente reglamento. Si no encuentras información, responde "No se encuentra en el reglamento".
 
---- REGLAMENTO ---
+=== CONTEXTO ===
 {contexto}
---- FIN ---
+=== FIN ===
 
 Pregunta: {pregunta}
 Respuesta:"""
@@ -82,24 +82,18 @@ Respuesta:"""
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# === VERIFICAR ESTADO DEL MODELO ===
+# === Ruta de verificación opcional ===
 @app.route("/modelo-status", methods=["GET"])
 def modelo_status():
     try:
-        response = requests.get(
+        r = requests.get(
             API_URL,
-            headers={
-                "Authorization": f"Bearer {HUGGINGFACE_TOKEN}"
-            }
+            headers={"Authorization": f"Bearer {HUGGINGFACE_TOKEN}"}
         )
-        if response.status_code == 200:
-            return jsonify({"estado": "✅ Modelo disponible"})
-        elif response.status_code == 503:
-            return jsonify({"estado": "⏳ Modelo cargando..."})
-        elif response.status_code == 401:
-            return jsonify({"estado": "❌ Token inválido o sin permisos"})
-        else:
-            return jsonify({"estado": "⚠️ Error desconocido", "código": response.status_code, "detalle": response.text})
+        return jsonify({
+            "status": r.status_code,
+            "detalle": r.text[:300]
+        }), r.status_code
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
