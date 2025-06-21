@@ -7,7 +7,7 @@ from sentence_transformers import SentenceTransformer
 import requests
 
 # === CONFIGURACIÓN ===
-HUGGINGFACE_TOKEN = os.getenv("HF_TOKEN")  # Configura esto en Render
+HUGGINGFACE_TOKEN = os.getenv("HF_TOKEN")
 API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
 
 # === CARGA DE EMBEDDINGS Y FRAGMENTOS ===
@@ -40,7 +40,6 @@ def consulta():
     if not pregunta:
         return jsonify({"error": "Pregunta vacía"}), 400
 
-    # Búsqueda semántica
     pregunta_vec = embedding_model.encode([pregunta])
     D, I = index.search(pregunta_vec, k=5)
     contexto = "\n\n".join([fragments[i] for i in I[0]])
@@ -82,10 +81,7 @@ Respuesta:"""
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
-
-# === RUTA DE VERIFICACIÓN DEL ESTADO DEL MODELO EN HUGGING FACE ===
+# === VERIFICAR ESTADO DEL MODELO ===
 @app.route("/modelo-status", methods=["GET"])
 def modelo_status():
     try:
@@ -95,21 +91,16 @@ def modelo_status():
                 "Authorization": f"Bearer {HUGGINGFACE_TOKEN}"
             }
         )
-
-
         if response.status_code == 200:
-            return jsonify({"estado": "Disponible ✅"})
+            return jsonify({"estado": "✅ Modelo disponible"})
         elif response.status_code == 503:
-            return jsonify({"estado": "⏳ Cargando modelo en Hugging Face... (503)"}), 503
+            return jsonify({"estado": "⏳ Modelo cargando..."})
         elif response.status_code == 401:
-            return jsonify({"estado": "❌ Token inválido o sin permisos (401)"}), 401
+            return jsonify({"estado": "❌ Token inválido o sin permisos"})
         else:
-            return jsonify({
-                "estado": f"⚠️ Error desconocido",
-                "código": response.status_code,
-                "detalle": response.text
-            }), response.status_code
-
+            return jsonify({"estado": "⚠️ Error desconocido", "código": response.status_code, "detalle": response.text})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
