@@ -3,21 +3,21 @@ from flask_cors import CORS
 import os
 import faiss
 import pickle
-from sentence_transformers import SentenceTransformer
 import requests
+from sentence_transformers import SentenceTransformer
 
-# === CONFIGURACIÓN ===
-DEESEEK_API_KEY = os.getenv("DEESEEK_API_KEY")
-DEESEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
+# === CONFIGURACIÓN GENERAL ===
+DEESEEK_API_KEY = os.getenv("DEESEEK_API_KEY")  # ⚠️ Debe estar configurado como variable en Render
+API_URL = "https://api.deepseek.com/v1/chat/completions"
 MODEL_NAME = "deepseek-chat"
 
-# === CARGA FRAGMENTOS Y FAISS ===
+# === CARGA DE EMBEDDINGS Y FRAGMENTOS ===
 with open("fragments.pkl", "rb") as f:
     fragments = pickle.load(f)
 index = faiss.read_index("reglamento.index")
 embedding_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
 
-# === APP FLASK ===
+# === FLASK APP ===
 app = Flask(__name__)
 CORS(app,
      resources={r"/consulta": {"origins": ["https://app.tecnoeducando.edu.pe"]}},
@@ -40,14 +40,14 @@ def consulta():
     if not pregunta:
         return jsonify({"error": "Pregunta vacía"}), 400
 
-    # Buscar contexto relevante
+    # === BÚSQUEDA SEMÁNTICA ===
     pregunta_vec = embedding_model.encode([pregunta])
     D, I = index.search(pregunta_vec, k=5)
     contexto = "\n\n".join([fragments[i] for i in I[0]])
 
-    # Prompt optimizado
+    # === PROMPT ===
     prompt = f"""Eres un asistente que responde exclusivamente con base en el siguiente reglamento.
-Si la información no está en el reglamento, responde: "No se encuentra en el reglamento".
+Si la información no se encuentra en el reglamento, responde únicamente: "No se encuentra en el reglamento".
 
 --- CONTEXTO ---
 {contexto}
@@ -56,9 +56,10 @@ Si la información no está en el reglamento, responde: "No se encuentra en el r
 Pregunta: {pregunta}
 Respuesta:"""
 
+    # === CONSULTA A DEEPSEEK ===
     try:
         response = requests.post(
-            DEESEEK_API_URL,
+            API_URL,
             headers={
                 "Authorization": f"Bearer {DEESEEK_API_KEY}",
                 "Content-Type": "application/json"
@@ -73,15 +74,17 @@ Respuesta:"""
             }
         )
 
-        data = response.json()
-        if "choices" in data:
-            respuesta = data["choices"][0]["message"]["content"]
-            return jsonify({"respuesta": respuesta})
+        result = response.json()
+
+        if "choices" in result:
+            texto = result["choices"][0]["message"]["content"].strip()
+            return jsonify({"respuesta": texto})
         else:
-            return jsonify({"error": data}), 500
+            return jsonify({"error": result}), 500
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
