@@ -18,11 +18,13 @@ TOKEN_PERMITIDO = "e398a7d3-dc9f-4ef9-bb29-07bff1672ef1"
 
 app = Flask(__name__)
 CORS(app,
-     resources={r"/*": {"origins": ["https://app.tecnoeducando.edu.pe"]}},
+     resources={
+         r"/consulta": {"origins": ["https://app.tecnoeducando.edu.pe"]},
+         r"/subir-doc": {"origins": ["https://app.tecnoeducando.edu.pe"]}
+     },
      supports_credentials=True,
      methods=["GET", "POST", "OPTIONS"],
-     allow_headers=["Content-Type", "X-Token"]
-)
+     allow_headers=["Content-Type", "X-Token"])
 
 embedding_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
 
