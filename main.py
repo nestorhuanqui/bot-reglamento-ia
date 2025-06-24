@@ -22,10 +22,8 @@ embedding_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
 # === FLASK ===
 app = Flask(__name__)
 CORS(app,
-     resources={
-         r"/consulta": {"origins": ["https://app.tecnoeducando.edu.pe"]},
-         r"/subir-doc": {"origins": ["https://app.tecnoeducando.edu.pe"]}
-     },
+     resources={r"/consulta": {"origins": ["https://app.tecnoeducando.edu.pe"]},
+                r"/subir-doc": {"origins": ["https://app.tecnoeducando.edu.pe"]}},
      supports_credentials=True,
      methods=["GET", "POST", "OPTIONS"],
      allow_headers=["Content-Type", "X-Token"])
@@ -34,7 +32,12 @@ CORS(app,
 @app.route("/consulta", methods=["POST", "OPTIONS"])
 def consulta():
     if request.method == "OPTIONS":
-        return jsonify({}), 200
+        response = jsonify({})
+        response.headers.add("Access-Control-Allow-Origin", "https://app.tecnoeducando.edu.pe")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type, X-Token")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        return response, 200
+
     if request.headers.get("X-Token") != TOKEN_PERMITIDO:
         return jsonify({"error": "No autorizado"}), 403
 
@@ -65,8 +68,10 @@ Respuesta:"""
 
     try:
         res = requests.post(API_URL,
-                            headers={"Authorization": f"Bearer {HUGGINGFACE_TOKEN}",
-                                     "Content-Type": "application/json"},
+                            headers={
+                                "Authorization": f"Bearer {HUGGINGFACE_TOKEN}",
+                                "Content-Type": "application/json"
+                            },
                             json={
                                 "model": MODEL_NAME,
                                 "messages": [{"role": "user", "content": prompt}],
@@ -82,7 +87,12 @@ Respuesta:"""
 @app.route("/subir-doc", methods=["POST", "OPTIONS"])
 def subir_doc():
     if request.method == "OPTIONS":
-        return jsonify({}), 200
+        response = jsonify({})
+        response.headers.add("Access-Control-Allow-Origin", "https://app.tecnoeducando.edu.pe")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type, X-Token")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        return response, 200
+
     if request.headers.get("X-Token") != TOKEN_PERMITIDO:
         return jsonify({"error": "No autorizado"}), 403
 
@@ -123,6 +133,6 @@ def subir_doc():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# === EJECUCIÓN LOCAL ===
+# === MAIN ===
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
