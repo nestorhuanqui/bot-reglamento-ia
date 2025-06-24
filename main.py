@@ -10,12 +10,12 @@ import docx
 import PyPDF2
 from werkzeug.utils import secure_filename
 
-# === CONFIGURACIÓN ===
-DEEPSEEK_TOKEN = os.getenv("HF_TOKEN")  # Debes colocar tu token en Render
+# === CONFIGURACIÓN GENERAL ===
+HUGGINGFACE_TOKEN = os.getenv("HF_TOKEN")
 API_URL = "https://api.deepseek.com/v1/chat/completions"
 MODEL_NAME = "deepseek-chat"
-TOKEN_PERMITIDO = "e398a7d3-dc9f-4ef9-bb29-07bff1672ef1"
 
+# === FLASK SETUP ===
 app = Flask(__name__)
 CORS(app,
      resources={
@@ -26,17 +26,21 @@ CORS(app,
      methods=["GET", "POST", "OPTIONS"],
      allow_headers=["Content-Type", "X-Token"])
 
+TOKEN_PERMITIDO = "e398a7d3-dc9f-4ef9-bb29-07bff1672ef1"
+
 embedding_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
 
-# === CONSULTA ===
+# === RUTA /consulta ===
 @app.route("/consulta", methods=["POST", "OPTIONS"])
 def consulta():
-    if request.method == "OPTIONS": return jsonify({}), 200
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
     if request.headers.get("X-Token") != TOKEN_PERMITIDO:
         return jsonify({"error": "No autorizado"}), 403
 
     pregunta = request.get_json().get("pregunta", "").strip()
-    if not pregunta: return jsonify({"error": "Pregunta vacía"}), 400
+    if not pregunta:
+        return jsonify({"error": "Pregunta vacía"}), 400
 
     with open("fragments.pkl", "rb") as f:
         fragments = pickle.load(f)
@@ -58,10 +62,8 @@ Respuesta:"""
 
     try:
         res = requests.post(API_URL,
-                            headers={
-                                "Authorization": f"Bearer {DEEPSEEK_TOKEN}",
-                                "Content-Type": "application/json"
-                            },
+                            headers={"Authorization": f"Bearer {HUGGINGFACE_TOKEN}",
+                                     "Content-Type": "application/json"},
                             json={
                                 "model": MODEL_NAME,
                                 "messages": [{"role": "user", "content": prompt}],
@@ -73,9 +75,11 @@ Respuesta:"""
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# === SUBIR DOCUMENTO ===
-@app.route("/subir-doc", methods=["POST"])
+# === RUTA /subir-doc ===
+@app.route("/subir-doc", methods=["POST", "OPTIONS"])
 def subir_doc():
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
     if request.headers.get("X-Token") != TOKEN_PERMITIDO:
         return jsonify({"error": "No autorizado"}), 403
 
@@ -103,8 +107,6 @@ def subir_doc():
         else:
             return jsonify({"error": "Formato no soportado"}), 400
 
-        # Limitamos a 2000 caracteres para reducir RAM
-        texto = texto[:2000]
         fragmentos = [frag.strip() for frag in texto.split("\n\n") if frag.strip()]
         vectores = embedding_model.encode(fragmentos, convert_to_numpy=True)
         index = faiss.IndexFlatL2(vectores.shape[1])
@@ -114,7 +116,7 @@ def subir_doc():
         with open("fragments.pkl", "wb") as f:
             pickle.dump(fragmentos, f)
 
-        return jsonify({"mensaje": f"Documento cargado con éxito. Fragmentos: {len(fragmentos)}"})
+        return jsonify({"mensaje": f"Documento cargado. Fragmentos: {len(fragmentos)}"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
