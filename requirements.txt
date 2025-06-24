@@ -1,6 +1,8 @@
 flask
 flask-cors
-faiss-cpu
 sentence-transformers
+faiss-cpu
+PyPDF2
+python-docx
 requests
 gunicorn
