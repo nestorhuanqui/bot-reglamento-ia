@@ -10,12 +10,16 @@ import docx
 import PyPDF2
 from werkzeug.utils import secure_filename
 
-# === CONFIGURACIÓN GENERAL ===
+# === CONFIGURACIÓN ===
 HUGGINGFACE_TOKEN = os.getenv("HF_TOKEN")
 API_URL = "https://api.deepseek.com/v1/chat/completions"
 MODEL_NAME = "deepseek-chat"
+TOKEN_PERMITIDO = "e398a7d3-dc9f-4ef9-bb29-07bff1672ef1"
 
-# === FLASK SETUP ===
+# === MODELO DE EMBEDDINGS ===
+embedding_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
+
+# === FLASK ===
 app = Flask(__name__)
 CORS(app,
      resources={
@@ -25,10 +29,6 @@ CORS(app,
      supports_credentials=True,
      methods=["GET", "POST", "OPTIONS"],
      allow_headers=["Content-Type", "X-Token"])
-
-TOKEN_PERMITIDO = "e398a7d3-dc9f-4ef9-bb29-07bff1672ef1"
-
-embedding_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
 
 # === RUTA /consulta ===
 @app.route("/consulta", methods=["POST", "OPTIONS"])
@@ -42,9 +42,12 @@ def consulta():
     if not pregunta:
         return jsonify({"error": "Pregunta vacía"}), 400
 
-    with open("fragments.pkl", "rb") as f:
-        fragments = pickle.load(f)
-    index = faiss.read_index("reglamento.index")
+    try:
+        with open("fragments.pkl", "rb") as f:
+            fragments = pickle.load(f)
+        index = faiss.read_index("reglamento.index")
+    except:
+        return jsonify({"error": "No hay documento cargado"}), 500
 
     pregunta_vec = embedding_model.encode([pregunta])
     D, I = index.search(pregunta_vec, k=5)
@@ -120,5 +123,6 @@ def subir_doc():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# === EJECUCIÓN LOCAL ===
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
