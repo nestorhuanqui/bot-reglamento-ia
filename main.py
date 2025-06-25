@@ -22,8 +22,10 @@ embedding_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
 # === FLASK ===
 app = Flask(__name__)
 CORS(app,
-     resources={r"/consulta": {"origins": ["https://app.tecnoeducando.edu.pe"]},
-                r"/subir-doc": {"origins": ["https://app.tecnoeducando.edu.pe"]}},
+     resources={
+         r"/consulta": {"origins": ["https://app.tecnoeducando.edu.pe"]},
+         r"/subir-doc": {"origins": ["https://app.tecnoeducando.edu.pe"]}
+     },
      supports_credentials=True,
      methods=["GET", "POST", "OPTIONS"],
      allow_headers=["Content-Type", "X-Token"])
@@ -121,6 +123,11 @@ def subir_doc():
             return jsonify({"error": "Formato no soportado"}), 400
 
         fragmentos = [frag.strip() for frag in texto.split("\n\n") if frag.strip()]
+
+        # 🚨 Límite de seguridad para evitar sobrecarga de RAM
+        if len(fragmentos) > 100:
+            return jsonify({"error": "El documento es muy extenso. Intenta reducir su contenido o dividirlo en partes."}), 400
+
         vectores = embedding_model.encode(fragmentos, convert_to_numpy=True)
         index = faiss.IndexFlatL2(vectores.shape[1])
         index.add(vectores)
