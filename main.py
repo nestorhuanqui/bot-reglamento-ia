@@ -23,7 +23,7 @@ CORS(app,
      methods=["GET", "POST", "OPTIONS"],
      allow_headers=["Content-Type", "X-Token"])
 
-# === RUTA DE CONSULTA ===
+# === RUTA /consulta ===
 @app.route("/consulta", methods=["POST", "OPTIONS"])
 def consulta():
     if request.method == "OPTIONS":
