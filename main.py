@@ -7,7 +7,7 @@ import requests
 from sentence_transformers import SentenceTransformer
 
 # === CONFIGURACIÓN ===
-DEEPSEEK_TOKEN = os.getenv("HF_TOKEN")  # ⚠️ Asegúrate de configurarlo en Render
+DEESEEK_API_KEY = os.getenv("HF_TOKEN")  # ⚠️ Asegúrate de configurarlo en Render
 API_URL = "https://api.deepseek.com/v1/chat/completions"
 MODEL_NAME = "deepseek-chat"
 TOKEN_PERMITIDO = "e398a7d3-dc9f-4ef9-bb29-07bff1672ef1"
