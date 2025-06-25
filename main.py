@@ -58,7 +58,7 @@ def consulta():
     contexto = "\n\n".join([fragments[i] for i in I[0]])
 
     prompt = f"""Eres un asistente profesional que responde exclusivamente con base en el siguiente reglamento. 
-Tu tarea es comprender el significado de la pregunta, aunque se usen sinónimos o palabras similares, 
+Tu tarea es comprender el significado de la pregunta, comprende cuando se usen sinónimos o palabras similares, 
 y dar una respuesta exacta y amable basada únicamente en la información del reglamento.
 
 Si la información no se encuentra en el reglamento, responde solo: "No se encuentra en el reglamento".
