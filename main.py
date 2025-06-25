@@ -57,7 +57,11 @@ def consulta():
     D, I = index.search(pregunta_vec, k=5)
     contexto = "\n\n".join([fragments[i] for i in I[0]])
 
-    prompt = f"""Responde de forma clara y amigable con base en el siguiente reglamento. Si la información no está en el reglamento, responde: \"No se encuentra en el reglamento\".
+    prompt = f"""Eres un asistente profesional que responde exclusivamente con base en el siguiente reglamento. 
+Tu tarea es comprender el significado de la pregunta, aunque se usen sinónimos o palabras similares, 
+y dar una respuesta exacta y amable basada únicamente en la información del reglamento.
+
+Si la información no se encuentra en el reglamento, responde solo: "No se encuentra en el reglamento".
 
 --- CONTEXTO ---
 {contexto}
@@ -65,6 +69,7 @@ def consulta():
 
 Pregunta: {pregunta}
 Respuesta:"""
+
 
     try:
         res = requests.post(API_URL,
