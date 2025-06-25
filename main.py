@@ -51,7 +51,8 @@ def consulta():
     D, I = index.search(pregunta_vec, k=5)
     contexto = "\n\n".join([fragments[i] for i in I[0]])
 
-    prompt = f"""Eres un asistente que responde exclusivamente con base en el siguiente reglamento. 
+    prompt = f"""Eres un asistente amable y profesional que responde exclusivamente con base en el siguiente reglamento.
+Responde con un tono cercano, claro y cordial, como si hablaras con una persona interesada. 
 Si la información no se encuentra en el reglamento, responde únicamente: "No se encuentra en el reglamento".
 
 --- CONTEXTO ---
