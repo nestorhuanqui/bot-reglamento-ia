@@ -74,7 +74,7 @@ Respuesta:"""
             json={
                 "model": MODEL_NAME,
                 "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.5
+                "temperature": 0.6
             })
 
         r = res.json()
