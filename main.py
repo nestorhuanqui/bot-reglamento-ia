@@ -55,8 +55,9 @@ def consulta():
 
     # PROMPT con enfoque conversacional natural
     prompt = f"""
-Actúa como un asistente amable y preciso. Usa solamente la información del siguiente reglamento para responder.
-Si no encuentras la información en el texto, responde: "No se encuentra en el reglamento".
+Eres un asistente virtual cordial y claro. Responde con amabilidad y precisión basándote exclusivamente en el siguiente reglamento. 
+Si la información no está presente, responde: "Disculpa, no se encuentra en el reglamento". 
+Evita sonar como un robot; usa un tono amable, natural y profesional.
 
 --- CONTEXTO ---
 {contexto}
